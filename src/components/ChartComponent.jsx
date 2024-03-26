@@ -33,7 +33,7 @@ const ChartComponent = ({ data, colors, highlightRanges }) => {
       height: 600,
     });
 
-    // area series for initial data with custom colors
+    // custom colors for initial data
     const initialAreaSeries = chart.addAreaSeries({
       topColor: initialAreaTopColor,
       bottomColor: initialAreaBottomColor,
@@ -61,14 +61,71 @@ const ChartComponent = ({ data, colors, highlightRanges }) => {
       });
     }
 
+    const toolTipWidth = 96;
+    const toolTipHeight = 95;
+    const toolTipMargin = 15;
+
+    // toolTip with styling properties
+    const toolTip = document.createElement('div');
+    toolTip.style = `width: ${toolTipWidth}px; height: ${toolTipHeight}px; position: absolute; display: none; padding: 8px; box-sizing: border-box; font-size: 12px; text-align: left; z-index: 1000; pointer-events: none; border: 1px solid; border-radius: 2px; font-family: -apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;`;
+    toolTip.style.background = 'white';
+    toolTip.style.color = 'black';
+    toolTip.style.borderColor = 'rgba( 38, 166, 154, 1)';
+    chartContainerRef.current.appendChild(toolTip);
+
+    // update tooltip
+    chart.subscribeCrosshairMove(param => {
+      if (
+        param.point === undefined ||
+        !param.time ||
+        param.point.x < 0 ||
+        param.point.x > chartContainerRef.current.clientWidth ||
+        param.point.y < 0 ||
+        param.point.y > chartContainerRef.current.clientHeight
+      ) {
+        toolTip.style.display = 'none';
+      } else {
+        let valueColor = 'black';
+        const isHighlighted = highlightRanges.some(({ startTime, endTime }) => {
+          return param.time >= startTime && param.time <= endTime;
+        });
+        if (isHighlighted) {
+          valueColor = 'red';
+        }
+
+        const dateStr = param.time;
+        toolTip.style.display = 'block';
+        const data = param.seriesData.get(initialAreaSeries);
+        const price = data.value !== undefined ? data.value : data.close;
+        toolTip.innerHTML = `<div style="color: rgba( 38, 166, 154, 1)">MaticAlgos</div><div style="font-size: 24px; margin: 4px 0px; color: ${valueColor}">
+            ${Math.round(100 * price) / 100}
+            </div><div style="color: black">
+            ${dateStr}
+            </div>`;
+
+        const y = param.point.y;
+        let left = param.point.x + toolTipMargin;
+        if (left > chartContainerRef.current.clientWidth - toolTipWidth) {
+          left = param.point.x - toolTipMargin - toolTipWidth;
+        }
+
+        let top = y + toolTipMargin;
+        if (top > chartContainerRef.current.clientHeight - toolTipHeight) {
+          top = y - toolTipHeight - toolTipMargin;
+        }
+        toolTip.style.left = left + 'px';
+        toolTip.style.top = top + 'px';
+      }
+    });
+
     const handleResize = () => {
       chart.applyOptions({ width: chartContainerRef.current.clientWidth });
     };
 
-    window.addEventListener("resize", handleResize);
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener('resize', handleResize);
       chart.remove();
     };
   }, [
